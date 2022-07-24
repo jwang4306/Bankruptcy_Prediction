@@ -1,0 +1,104 @@
+---
+title: "EDA_Write_Up"
+author: "Allison Kelley and Jack Wang"
+date: '2022-04-30'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Final Project EDA
+
+Jack Wang and Allison Kelley
+
+## Data Set Overview
+
+Our data set contains metrics related to Taiwanese companies' finances and whether or not the companies will be bankrupt within the following year. Our data set was obtained from Kaggle. The data set has 6819 observations and 96 features. It also has no missing values which means we will be able to use the full data set and will not have to take measures to account for the missing data.
+
+## Essential Findings
+
+Our response variable (`bankrupt`) is very unevenly distributed with approximately 97% of the values being not bankrupt. A plot of this distribution can be seen below
+
+```{r include=FALSE}
+library(tidyverse)
+library(tidymodels)
+set.seed(1)
+bankruptcy <- read_csv("data/data.csv") %>%
+  janitor::clean_names()
+
+skimr::skim(bankruptcy)
+# no missing data
+
+# split data 
+bankruptcy_split <- initial_split(bankruptcy, prop = 0.8, strata = bankrupt)
+bankruptcy_train <- training(bankruptcy_split)
+bankruptcy_test <- testing(bankruptcy_split)
+
+bankruptcy_EDA <- initial_split(bankruptcy_train, prop = 0.5, strata = bankrupt)
+EDA_train <- training(bankruptcy_EDA)
+EDA_test <- testing(bankruptcy_EDA)
+```
+
+```{r echo=FALSE}
+# evaluation of outcome variable
+EDA_train %>%
+  ggplot(mapping = aes(x = bankrupt)) +
+  geom_bar()
+```
+
+This uneven distribution will make it difficult to train a model that is better than the null model and will need to be addressed during feature engineering. In the exploration of the variables of our predictor variables, we found that multiple were skewed and need log transformations during feature engineering. The distribution of one such variable (`total_asset_turnover`) can be seen in the plot below.
+
+```{r echo=FALSE}
+EDA_train %>%
+  ggplot(mapping = aes(x = total_asset_turnover)) +
+  geom_histogram()
+```
+
+In terms of relationships between variables, we did not see any large correlation between our outcome variables and the predictor variables. However, we did see multiple significant relationships between variables (correlation is \> 0.5). We also saw multiple variables that high correlations with `roa_c_before_interest_and_depreciation_before_interest`, `roa_a_before_interest_and_percent_after_tax`, `roa_b_before_interest_and_depreciation_after_tax`. An example of a high correlation can be seen below in the correlation plot between `roa_c_before_interest_and_depreciation_before_interest` and `net_income_to_total_assets`.
+
+```{r echo=FALSE}
+EDA_train %>%
+  ggplot(aes(x = roa_c_before_interest_and_depreciation_before_interest, y = net_income_to_total_assets)) +
+  geom_point()
+```
+
+One of the most interesting finds we have discovered so far are the presence of binomial distributions in `cash_turnover_rate` and `inventory_turnover_rate`. It is not certain why this distribution exists, as it exists independently of `bankrupt` status. Its existence does mean that we will have to be careful in resampling or cross-validation.
+
+```{r echo=FALSE}
+EDA_train %>%
+  ggplot(aes(x = log(cash_turnover_rate))) +
+  geom_density()
+
+EDA_train %>%
+  ggplot(aes(x = log(inventory_turnover_rate_times))) +
+  geom_density()
+```
+
+
+## Secondary Findings
+
+Bankruptcy Prediction is an area under strict scrutiny by accountants, investors, and creditors. The reason is obvious, as financial gains from correct predictions are huge while financial losses from incorrect predictions can be devastating. Consensus over the years is that `working_capital_to_total_assets` (working capital is the amount of liquid assets minus liabilities) is the best indicator (Bellovary et al). The violin plot below shows that there are significant difference between firms that later went bankrupt vs not bankrupt. At all quartiles, the ratio from solvent companies are higher than non-solvent companies. 
+
+```{r echo=FALSE, warning=FALSE}
+EDA_train <- EDA_train %>%
+  mutate(bankrupt = factor(bankrupt, levels = c(1,0), label = c("Yes", "No") ))
+
+ggplot(EDA_train, aes(x = bankrupt, y = working_capital_to_total_assets)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))
+```
+
+The literature consensus also agrees that `current_ratio` is an important indicator (Bellovary et al). Current ratio is a ratio from current asset (assets that are expected to be liquid within a year) to current liabilities (companies' obligations within a year). As we can see, the violin plot below agrees with the consensus. 
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(EDA_train, aes(x = bankrupt, y = current_ratio)) +
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
+  scale_y_continuous(limits = c(0, 0.1))
+```
+
+There are also various features present in the data sets which the literatures agree have importance, but they are too numerous to cover in this memo. 
+
+## Works Cited
+
+Bellovary, J., Giacomino, D., &amp; Akers, M. (2007). A Review of Bankruptcy Prediction Studies: 1930 to Present. Journal of Financial Education, 33, 1–42. 

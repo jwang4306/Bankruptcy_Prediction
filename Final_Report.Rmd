@@ -1,0 +1,74 @@
+---
+title: "Final Report"
+author: "Allison Kelley"
+date: '2022-06-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The modeling in this project was done using the Company Bankruptcy Prediction data set from [Kaggle](https://www.kaggle.com/code/danharris97/company-bankruptcy-prediction-rfc-96-accuracy/data). This data set contains multiple metrics to indicate company performance and financial stability. The goal of this project was to see how well these metrics could be used to predict whether or not a company goes bankrupt within the next year. This report details the model fitting process and findings.
+
+## EDA Findings
+
+One of the key findings from our EDA was that our outcome variable was very unevenly distributed, with about 97% of the companies avoiding bankruptcy. This uneven distribution can be seen in the plot below.
+
+```{r, warning=FALSE, message=FALSE, include=FALSE}
+library(tidyverse)
+library(tidymodels)
+set.seed(1)
+bankruptcy <- read_csv("data/data.csv") %>%
+  janitor::clean_names()
+
+# split data 
+bankruptcy_split <- initial_split(bankruptcy, prop = 0.8, strata = bankrupt)
+bankruptcy_train <- training(bankruptcy_split)
+bankruptcy_test <- testing(bankruptcy_split)
+
+bankruptcy_EDA <- initial_split(bankruptcy_train, prop = 0.5, strata = bankrupt)
+EDA_train <- training(bankruptcy_EDA)
+EDA_test <- testing(bankruptcy_EDA)
+
+# evaluation of outcome variable
+EDA_train %>%
+  ggplot(mapping = aes(x = bankrupt)) +
+  geom_bar()
+```
+
+We also had multiple variables with skewed distributions that likely need a log transformation which was addressed in the feature engineering. Finally, we also saw some strong correlations between variables, which was also addressed during feature engineering.
+
+## Recipe Feature Engineering
+
+For our modeling, we tried four different recipes, all of which can be seen in the `Recipes.R` script. To begin fitting, we started with a more basic recipe that included all variables, except those with near zero variance. Next we tried the same recipe with a `step_log()` included for all numerical predictors. This recipe had higher accuracy than the recipe without the log step. Finally, we tried 2 recipes with only the most important predictors, one with the log step and one without, to see if it led to improved accuracy. However, the accuracy values using these recipes were lower than the recipe with all variables included and the `step_log()`.
+
+## Model Types Used
+
+The model types used, as well as their best accuracy values during tuning and parameters, if relevant, are shown below:
+
+-   Bagged Mars Model: accuracy - 0.971
+
+-   Bagged Tree Model: accuracy - 0.968
+
+-   Ensemble Model: accuracy- 0.968
+
+-   BT Model: accuracy - 0.969
+
+-   GLM Model: accuracy - 0.969, penalty - 0.00316, mixture - 0.75
+
+-   MARS: accuracy - 0.968, num_terms - 3, prod_degree - 2
+
+-   Null: accuracy - 0.969
+
+-   SVM: accuracy - 0.968, cost - 2.38, rbf_sigma - 0.00316
+
+-   KNN: accuracy - 0.969, neighbors - 15
+
+-   SLNN: accuracy - 0.968, hidden_units  - 5, penalty - 1
+
+## Conclusion
+
+Our best overall model was the bagged mars model which had an accuracy value slightly higher than the accuracy of the null model. Because this model is not tuned like the other models are, this accuracy value is already the accuracy of the model on the test set. The bagged mars model likely worked best on our data due to its ensembling, its ability to fit non-linear data well, and its ability to account for interactions between predictors. In the future, it would be interesting to see if we could engineer more ideal features to improve our accuracy or see how well our model does with other metrics.
